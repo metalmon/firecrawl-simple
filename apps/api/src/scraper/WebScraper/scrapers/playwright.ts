@@ -8,13 +8,14 @@ import { Logger } from "../../../lib/logger";
  * @param url The URL to scrape
  * @param waitFor The time to wait for the page to load
  * @param headers The headers to send with the request
- * @param pageOptions The options for the page
+ * @param blockMedia When true, puppeteer-service skips image/media/font subresources
  * @returns The scraped content
  */
 export async function scrapeWithPlaywright(
   url: string,
   waitFor: number = 0,
   headers?: Record<string, string>,
+  blockMedia: boolean = true,
 ): Promise<{ content: string; pageStatusCode?: number; pageError?: string }> {
   const logParams = {
     url,
@@ -37,6 +38,7 @@ export async function scrapeWithPlaywright(
         url: url,
         wait_after_load: waitParam,
         headers: headers,
+        block_media: blockMedia,
       },
       {
         headers: {

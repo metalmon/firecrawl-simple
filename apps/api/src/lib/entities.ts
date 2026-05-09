@@ -28,6 +28,8 @@ export type PageOptions = {
   useFastMode?: boolean; // beta
   disableJsDom?: boolean; // beta
   atsv?: boolean; // beta
+  /** When true, puppeteer-service blocks image/media/font subresources (default true from v1). */
+  blockMedia?: boolean;
 };
 
 export type SearchOptions = {

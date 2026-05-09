@@ -62,6 +62,7 @@ export const scrapeOptions = z
     timeout: z.number().int().positive().finite().safe().default(30000),
     waitFor: z.number().int().nonnegative().finite().safe().default(0),
     extract: extractOptions.optional(),
+    blockMedia: z.boolean().optional().default(true),
   })
   .strict(strictMessage);
 
@@ -260,6 +261,7 @@ export function legacyScrapeOptions(x: ScrapeOptions): PageOptions {
     waitFor: x.waitFor,
     headers: x.headers,
     screenshot: x.formats.includes("screenshot"),
+    blockMedia: x.blockMedia,
   };
 }
 

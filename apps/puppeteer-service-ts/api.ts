@@ -8,8 +8,19 @@ import { TransportBridge } from "@ulixee/net";
 import { ConnectionToHeroCore } from "@ulixee/hero";
 import { getError } from "./helpers/get_error";
 import { setupOpenAPI } from "./openapi";
+import { heroBlockedResourceTypes } from "./blockMedia";
 
 dotenv.config();
+
+/** Docker Compose sets PROXY_SERVER; retry path only read PROXY_URL — align both. */
+function upstreamProxyFromEnv(): string | undefined {
+  const u = (process.env.PROXY_URL || "").trim();
+  if (u) {
+    return u;
+  }
+  const s = (process.env.PROXY_SERVER || "").trim();
+  return s || undefined;
+}
 
 const app = express();
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3003;
@@ -27,6 +38,8 @@ interface UrlModel {
   timeout?: number;
   headers?: { [key: string]: string };
   check_selector?: string;
+  /** Omit or true: block images/media/fonts. Explicit false loads all subresources. */
+  block_media?: boolean;
 }
 
 const isValidUrl = (urlString: string): boolean => {
@@ -53,6 +66,7 @@ const scrape = async (
   headers?: { [key: string]: string },
   check_selector?: string,
   proxy_url?: string,
+  block_media = true,
 ) => {
   const heroInstance = new Hero({
     connectionToCore,
@@ -61,6 +75,7 @@ const scrape = async (
       "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/109.0",
     upstreamProxyUrl: proxy_url,
     upstreamProxyUseLocalDns: true,
+    blockedResourceTypes: heroBlockedResourceTypes(block_media),
   });
 
   const tab = heroInstance.activeTab;
@@ -144,6 +159,10 @@ const scrape = async (
  *         check_selector:
  *           type: string
  *           description: CSS selector to wait for before considering page loaded
+ *         block_media:
+ *           type: boolean
+ *           default: true
+ *           description: When true, skip image/media/font subresources at the network layer; set false for full asset load
  *
  *     ScrapeResponse:
  *       type: object
@@ -210,7 +229,10 @@ app.post("/scrape", async (req: Request, res: Response) => {
     timeout = 60000,
     headers,
     check_selector,
+    block_media: block_media_body,
   }: UrlModel = req.body;
+
+  const block_media = block_media_body !== false;
 
   console.log(`\n================= Scrape Request =================`);
   console.log(`URL: ${url}`);
@@ -218,6 +240,7 @@ app.post("/scrape", async (req: Request, res: Response) => {
   console.log(`Timeout: ${timeout}`);
   console.log(`Headers: ${headers ? JSON.stringify(headers) : "None"}`);
   console.log(`Check Selector: ${check_selector ? check_selector : "None"}`);
+  console.log(`Block media: ${block_media}`);
   console.log(`==================================================`);
 
   if (!url) {
@@ -240,6 +263,8 @@ app.post("/scrape", async (req: Request, res: Response) => {
         timeout,
         headers,
         check_selector,
+        undefined,
+        block_media,
       );
     } catch (error) {
       if (
@@ -247,7 +272,7 @@ app.post("/scrape", async (req: Request, res: Response) => {
         error.message === "Failed to get page content"
       ) {
         console.log("Retrying scrape due to failed page content...");
-        let proxy_url = process.env.PROXY_URL;
+        const proxy_url = upstreamProxyFromEnv();
         return await scrape(
           url,
           wait_after_load,
@@ -255,6 +280,7 @@ app.post("/scrape", async (req: Request, res: Response) => {
           headers,
           check_selector,
           proxy_url,
+          block_media,
         );
       }
       throw error;

@@ -139,6 +139,7 @@ export async function scrapeSingleUrl(
     useFastMode: pageOptions.useFastMode ?? false,
     disableJsDom: pageOptions.disableJsDom ?? false,
     atsv: pageOptions.atsv ?? false,
+    blockMedia: pageOptions.blockMedia ?? true,
   };
 
   if (!existingHtml) {
@@ -163,7 +164,8 @@ export async function scrapeSingleUrl(
           const response = await scrapeWithPlaywright(
             url,
             pageOptions.waitFor,
-            pageOptions.headers
+            pageOptions.headers,
+            pageOptions.blockMedia
           );
           scraperResponse.text = response.content;
           scraperResponse.metadata.pageStatusCode = response.pageStatusCode;

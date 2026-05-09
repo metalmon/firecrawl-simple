@@ -135,7 +135,23 @@ API requests to the Firecrawl instance timeout or return no response.
 - Verify that the PORT and HOST settings in your .env file are correct and that no other service is using the same port.
 - Check the network configuration to ensure that the host is accessible from the client making the API request.
 
+### VPN, split tunneling, and empty scrapes (HeadHunter / DDG)
+
+**Symptom:** `/v1/scrape` succeeds but markdown is empty, or jobs fail intermittently.
+
+**Typical cause:** VPN split tunnel sends only `*.ru` direct; `html.duckduckgo.com`, `duckduckgo.com`, `list-org.com`, `readyratios.com` still use the tunnel. Docker Desktop egress may not follow the same rules as the host browser.
+
+**Mitigation:** Add VPN bypass for those hosts; keep `localhost` direct; optionally exclude Docker/WSL from full-tunnel VPN for dev. This repo sets public DNS on `puppeteer-service` in `docker-compose.yaml`. Leave `PROXY_SERVER` / `PROXY_URL` empty if an upstream proxy adds flakiness. Downstream: Vacancy Scout lists hosts in `docs/VPN_AND_FIRECRAWL.md`.
+
 By addressing these common issues, you can ensure a smoother setup and operation of your self-hosted Firecrawl instance.
+
+### Upgrading Ulixee Hero (`puppeteer-service-ts`)
+
+The TypeScript Playwright service uses `@ulixee/hero`, `@ulixee/hero-core`, `@ulixee/net`, `@ulixee/hero-interfaces`, `@ulixee/commons`, and `@ulixee/hero-plugin-utils` at the **same version** in `apps/puppeteer-service-ts/package.json`. Do not mix versions across those packages.
+
+Before bumping: read the [Hero CHANGELOG](https://github.com/ulixee/hero/blob/main/CHANGELOG.md), especially anything touching sessions, tabs, or `blockedResourceTypes` / resource filtering (see `apps/puppeteer-service-ts/blockMedia.ts`).
+
+After bumping: run `pnpm run build` in `apps/puppeteer-service-ts`, rebuild the Docker image, and smoke-test `POST /scrape` on a fixed URL twice—once with `block_media` omitted or `true`, and once with `block_media: false`—confirm HTTP 200, non-empty `content`, and expected HTML. Prefer a **separate PR** for Hero-only upgrades so bisect/rollback stay clear.
 
 ## Install Firecrawl on a Kubernetes Cluster (Simple Version)
 
