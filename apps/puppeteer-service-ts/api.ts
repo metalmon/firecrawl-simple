@@ -68,6 +68,7 @@ const scrape = async (
   proxy_url?: string,
   block_media = true,
 ) => {
+  const _t0 = Date.now();
   const heroInstance = new Hero({
     connectionToCore,
     userAgent:
@@ -79,6 +80,7 @@ const scrape = async (
   });
 
   const tab = heroInstance.activeTab;
+  console.log(`[timing] hero_ready ${Date.now() - _t0}ms`);
 
   if (proxy_url) {
     console.log(`Using proxy: ${proxy_url}`);
@@ -102,9 +104,22 @@ const scrape = async (
   });
 
   const pageStatusCode = resource.response.statusCode;
+  console.log(`[timing] goto_done ${Date.now() - _t0}ms`);
 
-  // Wait for page to be stable first
-  await tab.waitForPaintingStable();
+  // Wait for page to be stable first — BOUNDED. Without a timeout Hero's
+  // waitForPaintingStable hangs ~60-80s on pages whose painting never "settles"
+  // (ads/animations/keep-alive) — even trivial ones — which stalled every scrape.
+  // Cap it and proceed with the current DOM on timeout so scrapes return in seconds.
+  const paintStableMs = Number(process.env.PAINT_STABLE_TIMEOUT_MS) || 8000;
+  try {
+    await tab.waitForPaintingStable({ timeoutMs: paintStableMs });
+  } catch (err) {
+    console.log(
+      `waitForPaintingStable exceeded ${paintStableMs}ms, proceeding with current DOM: ${
+        (err as Error).message
+      }`,
+    );
+  }
 
   // Check for required selector if specified
   if (check_selector) {
@@ -118,9 +133,11 @@ const scrape = async (
     await tab.waitForMillis(wait_after_load);
   }
 
+  console.log(`[timing] paint_done ${Date.now() - _t0}ms`);
   // Get the page content
   const documentElement = await tab.document.documentElement;
   const pageContent = await documentElement.innerHTML;
+  console.log(`[timing] content_done ${Date.now() - _t0}ms`);
   if (!pageContent) {
     throw new Error("Failed to get page content");
   }

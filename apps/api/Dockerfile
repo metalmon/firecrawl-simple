@@ -10,7 +10,10 @@ RUN corepack enable
 # Copy package files
 COPY ./package.json ./pnpm-lock.yaml ./
 
-# Install dependencies
+# Skip Puppeteer's chrome-headless-shell download (network-flaky ETIMEDOUT); the
+# api uses the system chromium installed via apt below plus the external
+# puppeteer-service, so the bundled browser is redundant.
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 RUN pnpm install --frozen-lockfile
 
 # Install necessary build dependencies

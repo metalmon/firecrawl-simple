@@ -53,8 +53,11 @@ RUN pnpm install --frozen-lockfile
 # Copy the rest of the application
 COPY . .
 
-# Install Playwright with dependencies
-RUN npx playwright install --with-deps chromium
+# Install only the OS libraries chromium-based browsers need (via apt) — NOT the
+# playwright chromium binary. The scraper uses Ulixee Hero's own Chrome (fetched
+# during `pnpm install` above), so downloading playwright's chromium from
+# storage.googleapis.com is redundant and fails behind DPI (ECONNREFUSED).
+RUN npx playwright install-deps chromium
 
 # Build the application
 RUN pnpm run build
