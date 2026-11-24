@@ -1,34 +1,12 @@
 FROM node:18-slim
 
-WORKDIR /usr/src/app
-
-RUN npm install -g pnpm
-
-COPY . .
-
-RUN pnpm install
-
-# Install Playwright dependencies
-RUN npx playwright install --with-deps
-
-RUN pnpm run build
-
-ARG PORT
-ENV PORT=${PORT}
-
-EXPOSE ${PORT}
-
-CMD [ "pnpm", "start" ]
-FROM node:18-slim
-
-# Install system dependencies for Playwright
+# Fonts only. The Chrome this block used to install from Google's repository was
+# never driven: Hero fetches its own build during `pnpm install` (into
+# /root/.cache/ulixee), and the shared libraries a chromium-based browser needs
+# arrive with `playwright install-deps chromium` below. Measured in the running
+# container: /opt/google held 452 MB that nothing opened.
 RUN apt-get update && \
-    apt-get install -y wget gnupg && \
-    wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list && \
-    apt-get update && \
     apt-get install -y \
-    google-chrome-stable \
     fonts-ipafont-gothic \
     fonts-wqy-zenhei \
     fonts-thai-tlwg \
@@ -46,6 +24,12 @@ RUN npm install -g pnpm
 
 # Copy package files
 COPY ./package.json ./pnpm-lock.yaml ./
+
+# ⚠ Both flags must precede the install they govern. `puppeteer` otherwise fetches
+# a Chrome of its own at install time (577 MB under /root/.cache/puppeteer) that no
+# code here opens — the scraper drives Hero, and Hero brings its own.
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -66,7 +50,6 @@ RUN pnpm run build
 ARG PORT=3000
 ENV PORT=${PORT}
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/ms-playwright
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 EXPOSE ${PORT}
 
