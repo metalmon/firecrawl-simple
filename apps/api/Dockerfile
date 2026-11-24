@@ -46,12 +46,12 @@ RUN pnpm run build
 RUN mkdir -p dist/src/lib/go-html-to-md && \
     cp src/lib/go-html-to-md/html-to-markdown.so dist/src/lib/go-html-to-md/
 
-# `pnpm prune --prod` leaves typescript and the type packages behind; a clean
-# production install from the lockfile is what removes them. The store goes in the same
-# layer — a later `rm` cannot unwrite an earlier one.
-RUN rm -rf node_modules && \
-    pnpm install --prod --frozen-lockfile && \
-    rm -rf /root/.local/share/pnpm /root/.cache/pnpm /root/.cache/go-build /root/.cache/node
+# ⚠ NOT a production install. This package lists express — the framework the API
+# actually runs on — under devDependencies, so `--prod` removes it and the container
+# exits with `Cannot find module 'express'`. Reclassifying that belongs upstream; until
+# then the full set ships, and the weight this image sheds is elsewhere: the Go
+# toolchain, the browser and the caches below, none of which reach the runtime stage.
+RUN rm -rf /root/.local/share/pnpm /root/.cache/pnpm /root/.cache/go-build /root/.cache/node
 
 FROM node@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
 
